@@ -13,6 +13,7 @@ import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { CreatePrivateMessageDto } from './dto/create-private-message.dto';
 
 interface ConnectedUser {
   id: string;
@@ -99,9 +100,7 @@ export class MessagesGateway
       return { success: true, message };
     } catch (error) {
       this.logger.error(`Error creating message: ${error.message}`);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       client.emit('error', { message: error.message });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       return { success: false, error: error.message };
     }
   }
@@ -181,5 +180,126 @@ export class MessagesGateway
       this.logger.error(`Error finding messages: ${error.message}`);
       return { success: false, error: error.message };
     }
+  }
+  @SubscribeMessage('sendPrivateMessage')
+  async handleSendPrivateMessage(
+    client: Socket,
+    payload: { text: string; recipientId: string },
+  ) {
+    try {
+      const sender = this.connectedUsers.get(client.id);
+      if (!sender) {
+        throw new Error('User not identified');
+      }
+
+      const createPrivateMessageDto = new CreatePrivateMessageDto();
+      createPrivateMessageDto.text = payload.text;
+      createPrivateMessageDto.recipientId = payload.recipientId;
+
+      const message = await this.messagesService.createPrivateMessage(
+        createPrivateMessageDto,
+        sender.id,
+      );
+
+      // Find the recipient's socket if they're online
+      const recipientSocketId = this.findSocketIdByUserId(payload.recipientId);
+
+      // Emit to sender
+      client.emit('privateMessage', message);
+
+      // Emit to recipient if online
+      if (recipientSocketId) {
+        this.server.to(recipientSocketId).emit('privateMessage', message);
+      }
+
+      return { success: true, message };
+    } catch (error) {
+      this.logger.error(`Error sending private message: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('getPrivateMessages')
+  async handleGetPrivateMessages(
+    client: Socket,
+    payload: { partnerId: string },
+  ) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      const messages = await this.messagesService.getPrivateMessages(
+        user.id,
+        payload.partnerId,
+      );
+
+      return { success: true, messages };
+    } catch (error) {
+      this.logger.error(`Error getting private messages: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('getConversations')
+  async handleGetConversations(client: Socket) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      const conversations = await this.messagesService.getConversations(
+        user.id,
+      );
+      return { success: true, conversations };
+    } catch (error) {
+      this.logger.error(`Error getting conversations: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  @SubscribeMessage('markMessagesAsRead')
+  async handleMarkMessagesAsRead(
+    client: Socket,
+    payload: { partnerId: string },
+  ) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      await this.messagesService.markMessagesAsRead(user.id, payload.partnerId);
+
+      // Notify sender that messages were read
+      const partnerSocketId = this.findSocketIdByUserId(payload.partnerId);
+      if (partnerSocketId) {
+        this.server.to(partnerSocketId).emit('messagesRead', {
+          by: user.id,
+          conversation: user.id,
+        });
+      }
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Error marking messages as read: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Helper method to find socket ID by user ID
+  private findSocketIdByUserId(userId: string): string | undefined {
+    for (const [socketId, user] of this.connectedUsers.entries()) {
+      if (user.id === userId) {
+        return socketId;
+      }
+    }
+    return undefined;
   }
 }

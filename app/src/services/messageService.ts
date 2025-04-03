@@ -15,6 +15,25 @@ interface User {
   id: string;
   email: string;
 }
+export interface PrivateMessage {
+  id: string;
+  text: string;
+  createdAt: Date;
+  sender: User;
+  recipient: User;
+  read: boolean;
+}
+
+export interface Conversation {
+  partner: User;
+  lastMessage: PrivateMessage;
+  unread: number;
+}
+
+export interface CreatePrivateMessageDto {
+  text: string;
+  recipientId: string;
+}
 export interface CreateMessageDto {
   text: string;
 }

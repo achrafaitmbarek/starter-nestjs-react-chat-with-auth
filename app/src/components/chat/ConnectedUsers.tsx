@@ -3,14 +3,18 @@ import { useSocket } from "../../contexts/SocketContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { MessageSquare } from 'lucide-react';
 
 interface User {
     id: string;
     email: string;
     lastConnected?: string | Date;
 }
+interface ConnectedUsersProps {
+    onStartPrivateChat?: (userId: string) => void;
+}
 
-export default function ConnectedUsers() {
+export default function ConnectedUsers({ onStartPrivateChat }: ConnectedUsersProps) {
     const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
     const [offlineUsers, setOfflineUsers] = useState<User[]>([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -64,25 +68,36 @@ export default function ConnectedUsers() {
             </button>
 
             {isOpen && (
-                <div className="absolute left-0 mt-2 w-64 bg-white rounded-md shadow-lg z-50 overflow-hidden">
+                <div className="absolute left-0 mt-2 py-6 px-8 bg-white rounded-md shadow-lg z-50 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-100">
                         <h3 className="text-sm font-medium text-gray-700">Online ({onlineUsers.length})</h3>
                     </div>
-                    <div className="max-h-32 overflow-y-auto">
+                    <div className="max-h-44 overflow-y-auto">
                         {onlineUsers.length === 0 ? (
                             <p className="px-4 py-3 text-sm text-gray-500 italic">No users online</p>
                         ) : (
                             <ul className="py-2">
                                 {onlineUsers.map(user => (
                                     <li key={user.id} className="px-4 py-2 hover:bg-gray-50">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-400 to-blue-600 flex items-center justify-center text-white">
-                                                    {user.email.charAt(0).toUpperCase()}
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative">
+                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-400 to-blue-600 flex items-center justify-center text-white">
+                                                        {user.email.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></div>
                                                 </div>
-                                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></div>
+                                                <span className="text-sm truncate">{user.email}</span>
                                             </div>
-                                            <span className="text-sm truncate">{user.email}</span>
+                                            {onStartPrivateChat && (
+                                                <button
+                                                    onClick={() => onStartPrivateChat(user.id)}
+                                                    className="text-indigo-500 hover:text-indigo-700"
+                                                    title="Send private message"
+                                                >
+                                                    <MessageSquare size={20} />
+                                                </button>
+                                            )}
                                         </div>
                                     </li>
                                 ))}

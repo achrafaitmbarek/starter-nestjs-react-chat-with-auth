@@ -4,16 +4,32 @@ import MessageList from "../components/chat/MessageList";
 import UserInfo from "../components/chat/UserInfo";
 import LogoutButton from "../components/LogoutButton";
 import ConnectedUsers from "../components/chat/ConnectedUsers";
+import ConversationList from "@/components/chat/ConversationList";
+import { useState } from "react";
+import PrivateChat from "@/components/chat/PrivateChat";
 
 const Chat = () => {
   const { user } = useAuth();
+  const [activeConversation, setActiveConversation] = useState<string | null>(null);
+
+  const handleStartChat = (userId: string) => {
+    setActiveConversation(userId);
+  };
+
+  const handleCloseChat = () => {
+    setActiveConversation(null);
+  };
 
   return (
     <div className="container mx-auto w-full h-screen">
       <div className="rounded-lg w-full h-full">
         <div className="h-5/6 relative">
-          <div className="absolute top-A left-32 z-10">
-            <ConnectedUsers />
+          <div className="absolute top-8 left-32 z-10 space-y-2">
+            <ConnectedUsers onStartPrivateChat={handleStartChat} />
+            <ConversationList
+              onSelectConversation={handleStartChat}
+              selectedConversation={activeConversation || undefined}
+            />
           </div>
 
           <div className="backdrop-blur-sm bg-white/50 h-1/6 absolute top-0 right-3 w-full"></div>
@@ -35,6 +51,12 @@ const Chat = () => {
           </div>
         </div>
       </div>
+      {activeConversation && (
+        <PrivateChat
+          partnerId={activeConversation}
+          onClose={handleCloseChat}
+        />
+      )}
     </div>
   );
 };
