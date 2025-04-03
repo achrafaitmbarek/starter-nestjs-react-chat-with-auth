@@ -11,6 +11,7 @@ export interface Message {
     id: string;
     email: string;
   };
+  likes: number;
 }
 
 export interface CreateMessageDto {

@@ -53,7 +53,11 @@ export class MessagesService {
     await this.messagesRepository.update(id, updateMessageDto);
     return this.findOne(id);
   }
-
+  async likeMessage(messageId: string): Promise<Message> {
+    const message = await this.findOne(messageId);
+    message.likes += 1;
+    return this.messagesRepository.save(message);
+  }
   async remove(id: string): Promise<void> {
     await this.messagesRepository.softDelete(id);
   }

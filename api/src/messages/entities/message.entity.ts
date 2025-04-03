@@ -20,6 +20,9 @@ export class Message {
   @ManyToOne(() => User, (user) => user.messages)
   user: User;
 
+  @Column({ default: 0 })
+  likes: number;
+
   @CreateDateColumn()
   createdAt: Date;
 
