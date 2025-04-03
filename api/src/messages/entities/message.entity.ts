@@ -6,6 +6,8 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   ManyToOne,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -19,9 +21,12 @@ export class Message {
 
   @ManyToOne(() => User, (user) => user.messages)
   user: User;
-
   @Column({ default: 0 })
   likes: number;
+
+  @ManyToMany(() => User)
+  @JoinTable({ name: 'message_likes' })
+  likedBy: User[];
 
   @CreateDateColumn()
   createdAt: Date;

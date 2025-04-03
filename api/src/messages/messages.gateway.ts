@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -34,10 +36,12 @@ export class MessagesGateway
   private connectedUsers = new Map<string, ConnectedUser>();
   private disconnectedUsers = new Map<string, ConnectedUser>();
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   afterInit(server: Server) {
     this.logger.log('Messages WebSocket Gateway initialized');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   handleConnection(client: Socket, ...args: any[]) {
     this.logger.log(`Client connected: ${client.id}`);
   }
@@ -95,21 +99,56 @@ export class MessagesGateway
       return { success: true, message };
     } catch (error) {
       this.logger.error(`Error creating message: ${error.message}`);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       client.emit('error', { message: error.message });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       return { success: false, error: error.message };
     }
   }
   @SubscribeMessage('likeMessage')
   async handleLikeMessage(client: Socket, payload: { messageId: string }) {
     try {
-      const message = await this.messagesService.likeMessage(payload.messageId);
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+      const message = await this.messagesService.likeMessage(
+        payload.messageId,
+        user.id,
+      );
       this.server.emit('messageLiked', {
         messageId: message.id,
         likes: message.likes,
+        likedBy: message.likedBy,
       });
       return { success: true, message };
     } catch (error) {
       this.logger.error(`Error liking message: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+  @SubscribeMessage('unlikeMessage')
+  async handleUnlikeMessage(client: Socket, payload: { messageId: string }) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      const message = await this.messagesService.unlikeMessage(
+        payload.messageId,
+        user.id,
+      );
+
+      this.server.emit('messageLiked', {
+        messageId: message.id,
+        likes: message.likes,
+      });
+
+      return { success: true, message };
+    } catch (error) {
+      this.logger.error(`Error unliking message: ${error.message}`);
       client.emit('error', { message: error.message });
       return { success: false, error: error.message };
     }
@@ -124,7 +163,8 @@ export class MessagesGateway
         const timeA = new Date(a.lastConnected).getTime();
         const timeB = new Date(b.lastConnected).getTime();
         return timeB - timeA;
-      });
+      },
+    );
 
     this.server.emit('connectedUsers', {
       online: onlineUsers,

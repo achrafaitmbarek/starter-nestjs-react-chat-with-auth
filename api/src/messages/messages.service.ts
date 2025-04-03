@@ -28,7 +28,7 @@ export class MessagesService {
 
   findAll(): Promise<Message[]> {
     return this.messagesRepository.find({
-      relations: ['user'],
+      relations: ['user', 'likedBy'],
       order: {
         createdAt: 'ASC',
       },
@@ -38,7 +38,7 @@ export class MessagesService {
   async findOne(id: string): Promise<Message> {
     const message = await this.messagesRepository.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'likedBy'],
     });
     if (!message) {
       throw new NotFoundException(`Message with ID ${id} not found`);
@@ -53,9 +53,40 @@ export class MessagesService {
     await this.messagesRepository.update(id, updateMessageDto);
     return this.findOne(id);
   }
-  async likeMessage(messageId: string): Promise<Message> {
+  async likeMessage(messageId: string, userId: string): Promise<Message> {
     const message = await this.findOne(messageId);
+    const user = await this.usersService.findOne(userId);
+
+    const hasLiked = await this.messagesRepository
+      .createQueryBuilder('message')
+      .innerJoin('message.likedBy', 'user')
+      .where('message.id = :messageId', { messageId })
+      .andWhere('user.id = :userId', { userId })
+      .getCount();
+    if (hasLiked > 0) {
+      return message;
+    }
     message.likes += 1;
+    message.likedBy = [...(message.likedBy || []), user];
+    return this.messagesRepository.save(message);
+  }
+  async unlikeMessage(messageId: string, userId: string): Promise<Message> {
+    const message = await this.findOne(messageId);
+    console.log('message : ', message);
+    const hasLiked = await this.messagesRepository
+      .createQueryBuilder('message')
+      .innerJoin('message.likedBy', 'user')
+      .where('message.id = :messageId', { messageId })
+      .andWhere('user.id = :userId', { userId })
+      .getCount();
+    if (hasLiked === 0) {
+      return message;
+    }
+
+    message.likes = Math.max(0, message.likes - 1);
+    message.likedBy = message.likedBy.filter(
+      (likedUser) => likedUser.id !== userId,
+    );
     return this.messagesRepository.save(message);
   }
   async remove(id: string): Promise<void> {

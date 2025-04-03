@@ -7,13 +7,14 @@ export interface Message {
   id: string;
   text: string;
   createdAt: Date;
-  user: {
-    id: string;
-    email: string;
-  };
+  user: User;
+  likedBy: User[];
   likes: number;
 }
-
+interface User {
+  id: string;
+  email: string;
+}
 export interface CreateMessageDto {
   text: string;
 }
