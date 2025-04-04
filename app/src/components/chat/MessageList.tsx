@@ -3,10 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { messageService, Message } from "../../services/messageService";
 import { useSocket } from "../../contexts/SocketContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { Heart } from 'lucide-react';
+import { Heart, MessageSquare, Loader2 } from 'lucide-react';
 import { parseISO, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { User } from "@/services/authService";
+import { Card, CardContent, CardFooter } from "../ui/card";
+import { Button } from "../ui/button";
+import { Avatar, AvatarFallback } from "../ui/avatar";
 
 const MessageList: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -76,57 +79,91 @@ const MessageList: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  const formatMessageDate = (date: string | Date) => {
+    const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+    const adjustedDate = new Date(parsedDate.getTime() + 2 * 60 * 60 * 1000);
+    return formatDistanceToNow(adjustedDate, {
+      locale: fr,
+      addSuffix: true,
+    });
+  };
+
   if (isLoading) {
-    return <div className="text-center">Loading messages...</div>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading messages...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="text-center text-red-600">
-        Error loading messages. Please try again.
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center text-destructive">
+          <p className="font-medium">Error loading messages</p>
+          <p className="text-sm mt-1">Please try again later</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!messages || messages.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-full text-center">
+        <div className="flex flex-col items-center gap-3">
+          <MessageSquare className="h-12 w-12 opacity-20" />
+          <div>
+            <h3 className="font-medium">No messages yet</h3>
+            <p className="text-sm text-muted-foreground">Start the conversation!</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {messages?.map((message) => {
+    <div className="space-y-4 pb-4">
+      {messages.map((message) => {
         const userHasLiked = hasUserLikedMessage(message);
 
         return (
-          <div key={message.id} className="rounded-lg bg-white p-4 shadow-sm">
-            <p className="text-gray-800">{message.text}</p>
-            <div className="flex justify-between items-center text-sm mt-4">
-              <div className="text-gray-500/60">
-                <p>{message?.user?.email}</p>
+          <Card key={message.id} className="shadow-sm">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {message.user?.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <div className="flex justify-between">
+                    <p className="text-sm font-medium">{message.user?.email}</p>
+                    <span className="text-xs text-muted-foreground">
+                      {formatMessageDate(message.createdAt)}
+                    </span>
+                  </div>
+                  <p className="mt-1">{message.text}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => handleToggleLike(message.id)}
-                  className={`flex items-center gap-1 transition-colors ${userHasLiked
-                    ? "text-red-500"
-                    : "text-gray-400 hover:text-red-500"
-                    }`}
-                >
-                  <Heart
-                    size={16}
-                    className={userHasLiked ? "fill-red-500 text-red-500" : ""}
-                  />
-                  <span>{message.likes || 0}</span>
-                </button>
-                <p className="text-gray-500/60">
-                  {(() => {
-                    const date = parseISO(message.createdAt.toString());
-                    const adjustedDate = new Date(date.getTime() + 2 * 60 * 60 * 1000);
-                    return formatDistanceToNow(adjustedDate, {
-                      locale: fr,
-                      addSuffix: true,
-                    });
-                  })()}
-                </p>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+            <CardFooter className="pb-3 pt-1 flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleToggleLike(message.id)}
+                className={`space-x-1 h-8 ${userHasLiked ? "text-rose-500" : ""}`}
+              >
+                <Heart
+                  size={16}
+                  className={userHasLiked ? "fill-rose-500" : ""}
+                />
+                <span>{message.likes || 0}</span>
+              </Button>
+            </CardFooter>
+          </Card>
         );
       })}
       <div ref={messagesEndRef} />

@@ -9,6 +9,7 @@ import Chat from "./pages/Chat";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import "./App.css";
+import { Toaster } from "sonner";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
+      <Toaster richColors />
     </QueryClientProvider>
   );
 }

@@ -3,6 +3,12 @@ import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 import { AuthFormData } from "../services/authService";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { Alert, AlertDescription } from "./ui/alert";
+import { Loader2, Sun, Moon } from "lucide-react";
+import { useTheme } from "../hooks/useTheme";
 
 interface AuthFormProps {
   title: string;
@@ -23,6 +29,7 @@ const AuthForm: React.FC<AuthFormProps> = ({
 }) => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   const {
     register,
@@ -48,26 +55,34 @@ const AuthForm: React.FC<AuthFormProps> = ({
   };
 
   return (
-    <div className="flex min-h-screen flex-col justify-center px-6 py-12 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-        <h2 className="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-          {title}
-        </h2>
-      </div>
+    <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
+      <Card className="w-full max-w-md shadow-lg relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-4 top-4"
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          <span className="sr-only">Toggle theme</span>
+        </Button>
 
-      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <form className="space-y-6" onSubmit={handleSubmit(handleFormSubmit)}>
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium leading-6 text-gray-900"
-            >
-              Adresse email
-            </label>
-            <div className="mt-2">
-              <input
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">{title}</CardTitle>
+          <CardDescription className="text-sm text-muted-foreground">
+            Entrez vos informations pour continuer
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form className="space-y-4" onSubmit={handleSubmit(handleFormSubmit)}>
+            <div className="space-y-2">
+              <Label htmlFor="email">Adresse email</Label>
+              <Input
                 id="email"
                 autoComplete="email"
+                type="email"
+                placeholder="nom@example.com"
                 {...register("email", {
                   required: "L'email est requis",
                   pattern: {
@@ -75,29 +90,20 @@ const AuthForm: React.FC<AuthFormProps> = ({
                     message: "Adresse email invalide",
                   },
                 })}
-                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-2"
               />
               {errors.email && (
-                <p className="mt-1 text-sm text-red-600">
+                <p className="text-xs text-destructive mt-1">
                   {errors.email.message}
                 </p>
               )}
             </div>
-          </div>
 
-          <div>
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium leading-6 text-gray-900"
-              >
-                Mot de passe
-              </label>
-            </div>
-            <div className="mt-2">
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="password">Mot de passe</Label>
+              <Input
                 id="password"
                 type="password"
+                placeholder="••••••••"
                 autoComplete={
                   redirectTo === "/signin" ? "new-password" : "current-password"
                 }
@@ -109,44 +115,49 @@ const AuthForm: React.FC<AuthFormProps> = ({
                       "Le mot de passe doit contenir au moins 6 caractères",
                   },
                 })}
-                className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 px-2"
               />
               {errors.password && (
-                <p className="mt-1 text-sm text-red-600">
+                <p className="text-xs text-destructive mt-1">
                   {errors.password.message}
                 </p>
               )}
             </div>
-          </div>
 
-          {error && (
-            <div className="bg-red-50 p-4 rounded-md">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          )}
+            {error && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <div>
             <Button
               type="submit"
               disabled={isLoading}
-              variant="default"
-              className="w-full cursor-pointer"
+              className="w-full mt-6"
             >
-              {isLoading ? "Chargement..." : submitButtonText}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Chargement...
+                </>
+              ) : (
+                submitButtonText
+              )}
             </Button>
-          </div>
-        </form>
+          </form>
+        </CardContent>
 
-        <p className="mt-10 text-center text-sm text-gray-500">
-          {redirectText}{" "}
-          <Link
-            to={redirectTo}
-            className="font-semibold leading-6 text-indigo-600 hover:text-indigo-500"
-          >
-            {redirectLinkText}
-          </Link>
-        </p>
-      </div>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            {redirectText}{" "}
+            <Link
+              to={redirectTo}
+              className="font-medium text-primary hover:underline"
+            >
+              {redirectLinkText}
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
     </div>
   );
 };

@@ -4,6 +4,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { parseISO, formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Conversation } from "../../services/messageService";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Badge } from "../ui/badge";
+import { MessageCircle } from "lucide-react";
 
 const ConversationList: React.FC<{
     onSelectConversation: (userId: string) => void;
@@ -12,7 +15,6 @@ const ConversationList: React.FC<{
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const { socket, isConnected } = useSocket();
     const { user } = useAuth();
-    const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
         if (!socket || !isConnected || !user) return;
@@ -79,66 +81,69 @@ const ConversationList: React.FC<{
         });
     };
 
-    return (
-        <div className="relative">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm"
-            >
-                <span>Conversations</span>
-                {conversations.reduce((count, convo) => count + convo.unread, 0) > 0 && (
-                    <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {conversations.reduce((count, convo) => count + convo.unread, 0)}
-                    </span>
-                )}
-            </button>
+    const totalUnread = conversations.reduce((count, convo) => count + convo.unread, 0);
 
-            {isOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg overflow-hidden z-50">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                        <h3 className="text-sm font-medium text-gray-700">Conversations</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                        {conversations.length === 0 ? (
-                            <p className="px-4 py-3 text-sm text-gray-500 italic">No conversations yet</p>
-                        ) : (
-                            <ul className="py-2">
-                                {conversations.map(conversation => (
-                                    <li
-                                        key={conversation.partner.id}
-                                        className={`px-4 py-2 hover:bg-gray-50 cursor-pointer ${selectedConversation === conversation.partner.id ? 'bg-blue-50' : ''
-                                            }`}
-                                        onClick={() => onSelectConversation(conversation.partner.id)}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-400 to-blue-600 flex items-center justify-center text-white">
-                                                    {conversation.partner.email.charAt(0).toUpperCase()}
-                                                </div>
-                                                {conversation.unread > 0 && (
-                                                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                                        {conversation.unread}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between">
-                                                    <span className="text-sm font-medium truncate">{conversation.partner.email}</span>
-                                                    <span className="text-xs text-gray-500">{formatLastMessageTime(conversation.lastMessage.createdAt)}</span>
-                                                </div>
-                                                <p className="text-xs text-gray-500 truncate">
-                                                    {conversation.lastMessage.sender.id === user?.id ? 'You: ' : ''}
-                                                    {conversation.lastMessage.text}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
+    if (conversations.length === 0) {
+        return (
+            <div className="text-center py-6 text-muted-foreground">
+                <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No conversations yet</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {totalUnread > 0 && (
+                <div className="flex justify-end">
+                    <Badge variant="destructive">{totalUnread} unread</Badge>
                 </div>
             )}
+
+            <ul className="space-y-2">
+                {conversations.map(conversation => (
+                    <li
+                        key={conversation.partner.id}
+                        className={`rounded-md cursor-pointer ${selectedConversation === conversation.partner.id
+                                ? 'bg-accent'
+                                : 'hover:bg-accent/50'
+                            }`}
+                        onClick={() => onSelectConversation(conversation.partner.id)}
+                    >
+                        <div className="p-3 flex items-center gap-3">
+                            <div className="relative">
+                                <Avatar className="h-10 w-10">
+                                    <AvatarFallback className="bg-primary text-primary-foreground">
+                                        {conversation.partner.email.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
+                                {conversation.unread > 0 && (
+                                    <Badge
+                                        variant="destructive"
+                                        className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0"
+                                    >
+                                        {conversation.unread}
+                                    </Badge>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex justify-between">
+                                    <span className="text-sm font-medium truncate">
+                                        {conversation.partner.email}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                        {formatLastMessageTime(conversation.lastMessage.createdAt)}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground truncate">
+                                    {conversation.lastMessage.sender.id === user?.id ? 'You: ' : ''}
+                                    {conversation.lastMessage.text}
+                                </p>
+                            </div>
+                        </div>
+                    </li>
+                ))}
+            </ul>
         </div>
     );
 };

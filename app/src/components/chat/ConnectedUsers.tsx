@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
 import { useSocket } from "../../contexts/SocketContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Users } from "lucide-react";
+import { Button } from "../ui/button";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Card } from "../ui/card";
+import { Badge } from "../ui/badge";
+import { User } from "lucide-react";
 
 interface User {
     id: string;
     email: string;
     lastConnected?: string | Date;
 }
+
 interface ConnectedUsersProps {
     onStartPrivateChat?: (userId: string) => void;
 }
@@ -17,7 +22,6 @@ interface ConnectedUsersProps {
 export default function ConnectedUsers({ onStartPrivateChat }: ConnectedUsersProps) {
     const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
     const [offlineUsers, setOfflineUsers] = useState<User[]>([]);
-    const [isOpen, setIsOpen] = useState(false);
     const { socket, isConnected } = useSocket();
     const { user } = useAuth();
 
@@ -32,8 +36,10 @@ export default function ConnectedUsers({ onStartPrivateChat }: ConnectedUsersPro
         socket.emit('getConnectedUsers');
 
         socket.on('connectedUsers', (data: { online: User[], offline: User[] }) => {
-            setOnlineUsers(data.online || []);
-            setOfflineUsers(data.offline || []);
+            const filteredOnlineUsers = data.online.filter((u: User) => u.id !== user.id);
+            const filteredOfflineUsers = data.offline.filter((u: User) => u.id !== user.id);
+            setOnlineUsers(filteredOnlineUsers || []);
+            setOfflineUsers(filteredOfflineUsers || []);
         });
 
         return () => {
@@ -55,85 +61,82 @@ export default function ConnectedUsers({ onStartPrivateChat }: ConnectedUsersPro
     if (!isConnected) return null;
 
     return (
-        <div className="relative">
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-3 py-2 bg-white/90 rounded-lg shadow-sm hover:bg-white transition-colors"
-            >
-                <Users size={18} className="text-blue-500" />
-                <span className="font-medium text-sm">Users</span>
-                <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-semibold rounded-full bg-blue-500 text-white">
-                    {onlineUsers.length}
-                </span>
-            </button>
-
-            {isOpen && (
-                <div className="absolute left-0 mt-2 py-6 px-8 bg-white rounded-md shadow-lg z-50 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                        <h3 className="text-sm font-medium text-gray-700">Online ({onlineUsers.length})</h3>
+        <div className="space-y-4">
+            {onlineUsers.length > 0 && (
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">Online</h3>
+                        <Badge variant="secondary">{onlineUsers.length}</Badge>
                     </div>
-                    <div className="max-h-44 overflow-y-auto">
-                        {onlineUsers.length === 0 ? (
-                            <p className="px-4 py-3 text-sm text-gray-500 italic">No users online</p>
-                        ) : (
-                            <ul className="py-2">
-                                {onlineUsers.map(user => (
-                                    <li key={user.id} className="px-4 py-2 hover:bg-gray-50">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="relative">
-                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-400 to-blue-600 flex items-center justify-center text-white">
-                                                        {user.email.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white"></div>
-                                                </div>
-                                                <span className="text-sm truncate">{user.email}</span>
-                                            </div>
-                                            {onStartPrivateChat && (
-                                                <button
-                                                    onClick={() => onStartPrivateChat(user.id)}
-                                                    className="text-indigo-500 hover:text-indigo-700"
-                                                    title="Send private message"
-                                                >
-                                                    <MessageSquare size={20} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    <div className="px-4 py-3 border-b border-t border-gray-100">
-                        <h3 className="text-sm font-medium text-gray-700">Offline ({offlineUsers.length})</h3>
-                    </div>
-                    <div className="max-h-32 overflow-y-auto">
-                        {offlineUsers.length === 0 ? (
-                            <p className="px-4 py-3 text-sm text-gray-500 italic">No offline users</p>
-                        ) : (
-                            <ul className="py-2">
-                                {offlineUsers.map(user => (
-                                    <li key={user.id} className="px-4 py-2 hover:bg-gray-50">
-                                        <div className="flex items-center gap-3">
+                    <Card>
+                        <ul className="divide-y">
+                            {onlineUsers.map(user => (
+                                <li key={user.id} className="p-3 hover:bg-accent/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-3">
                                             <div className="relative">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-300 to-gray-400 flex items-center justify-center text-white">
-                                                    {user.email.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-gray-500 border-2 border-white"></div>
+                                                <Avatar className="h-8 w-8 bg-primary text-primary-foreground">
+                                                    <AvatarFallback className="text-indigo-950 text-xl font-extrabold">{user.email.charAt(0).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-1 ring-white"></span>
+                                            </div>
+                                            <span className="text-sm">{user.email}</span>
+                                        </div>
+                                        {onStartPrivateChat && (
+                                            <Button
+                                                onClick={() => onStartPrivateChat(user.id)}
+                                                size="icon"
+                                                variant="ghost"
+                                            >
+                                                <MessageSquare size={16} />
+                                                <span className="sr-only">Message</span>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+                </div>
+            )}
+
+            {offlineUsers.length > 0 && (
+                <div>
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">Offline</h3>
+                        <Badge variant="outline">{offlineUsers.length}</Badge>
+                    </div>
+                    <Card>
+                        <ul className="divide-y">
+                            {offlineUsers.map(user => (
+                                <li key={user.id} className="p-3 hover:bg-accent/50 transition-colors">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="relative">
+                                                <Avatar className="h-8 w-8 bg-muted text-muted-foreground">
+                                                    <AvatarFallback>{user.email.charAt(0).toUpperCase()}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-gray-400 ring-1 ring-white"></span>
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-sm truncate text-gray-700">{user.email}</span>
-                                                <span className="text-xs text-gray-500">
+                                                <span className="text-sm">{user.email}</span>
+                                                <span className="text-xs text-muted-foreground">
                                                     {formatLastSeen(user.lastConnected)}
                                                 </span>
                                             </div>
                                         </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </Card>
+                </div>
+            )}
+
+            {onlineUsers.length === 0 && offlineUsers.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No users available</p>
                 </div>
             )}
         </div>

@@ -38,6 +38,29 @@ export interface CreateMessageDto {
   text: string;
 }
 
+
+export interface Room {
+  id: string;
+  name: string;
+  description?: string;
+  owner: User;
+  members: User[];
+  createdAt: Date;
+}
+
+export interface RoomMessage {
+  id: string;
+  text: string;
+  sender: User;
+  room: Room;
+  createdAt: Date;
+}
+
+export interface CreateRoomDto {
+  name: string;
+  description?: string;
+}
+
 export const messageService = {
   async create(data: CreateMessageDto): Promise<Message> {
     const token = authService.getToken();
