@@ -6,6 +6,10 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UsersService } from '../users/users.service';
 import { PrivateMessage } from './entities/private-message.entity';
 import { CreatePrivateMessageDto } from './dto/create-private-message.dto';
+import { Room } from './entities/room.entity';
+import { RoomMessage } from './entities/room-message.entity';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { CreateRoomMessageDto } from './dto/create-room-message.dto';
 
 @Injectable()
 export class MessagesService {
@@ -15,8 +19,81 @@ export class MessagesService {
     @InjectRepository(PrivateMessage)
     private privateMessagesRepository: Repository<PrivateMessage>,
     private usersService: UsersService,
+    @InjectRepository(Room)
+    private roomRepository: Repository<Room>,
+    @InjectRepository(RoomMessage)
+    private roomMessageRepository: Repository<RoomMessage>,
   ) {}
 
+  async createRoom(
+    createRoomDto: CreateRoomDto,
+    userId: string,
+  ): Promise<Room> {
+    const owner = await this.usersService.findOne(userId);
+    const room = this.roomRepository.create({
+      ...createRoomDto,
+      owner,
+      members: [owner],
+    });
+    return this.roomRepository.save(room);
+  }
+
+  async findAllRooms(): Promise<Room[]> {
+    return this.roomRepository.find({
+      relations: ['owner', 'members'],
+    });
+  }
+  async findOneRoom(id: string): Promise<Room> {
+    const room = await this.roomRepository.findOne({
+      where: { id },
+      relations: ['owner', 'members'],
+    });
+    if (!room) {
+      throw new NotFoundException(`Room with ID ${id} not found`);
+    }
+    return room;
+  }
+  async joinRoom(roomId: string, userId: string): Promise<Room> {
+    const room = await this.findOneRoom(roomId);
+    const user = await this.usersService.findOne(userId);
+
+    const isMember = room.members.some((member) => member.id === userId);
+    if (!isMember) {
+      room.members.push(user);
+      await this.roomRepository.save(room);
+    }
+    return this.findOneRoom(roomId);
+  }
+  async leaveRoom(roomId: string, userId: string): Promise<Room> {
+    const room = await this.findOneRoom(roomId);
+    room.members = room.members.filter((member) => member.id !== userId);
+    await this.roomRepository.save(room);
+    return this.findOneRoom(roomId);
+  }
+  async createRoomMessage(
+    createRoomMessageDto: CreateRoomMessageDto,
+    userId: string,
+  ): Promise<RoomMessage> {
+    const sender = await this.usersService.findOne(userId);
+    const room = await this.findOneRoom(createRoomMessageDto.roomId);
+    const isMember = room.members.some((member) => member.id === userId);
+    if (!isMember) {
+      throw new Error('User is not a member of this room');
+    }
+    const message = this.roomMessageRepository.create({
+      text: createRoomMessageDto.text,
+      sender,
+      room,
+    });
+    return this.roomMessageRepository.save(message);
+  }
+  async findRoomMessages(roomId: string): Promise<RoomMessage[]> {
+    return this.roomMessageRepository.find({
+      where: { room: { id: roomId } },
+      relations: ['sender'],
+      order: { createdAt: 'ASC' },
+    });
+  }
   async createPrivateMessage(
     createPrivateMessageDto: CreatePrivateMessageDto,
     senderId: string,

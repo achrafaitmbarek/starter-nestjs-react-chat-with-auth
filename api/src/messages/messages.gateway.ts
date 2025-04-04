@@ -14,6 +14,8 @@ import { Server, Socket } from 'socket.io';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreatePrivateMessageDto } from './dto/create-private-message.dto';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { CreateRoomMessageDto } from './dto/create-room-message.dto';
 
 interface ConnectedUser {
   id: string;
@@ -293,7 +295,6 @@ export class MessagesGateway
     }
   }
 
-  // Helper method to find socket ID by user ID
   private findSocketIdByUserId(userId: string): string | undefined {
     for (const [socketId, user] of this.connectedUsers.entries()) {
       if (user.id === userId) {
@@ -301,5 +302,135 @@ export class MessagesGateway
       }
     }
     return undefined;
+  }
+  @SubscribeMessage('createRoom')
+  async handleCreateRoom(client: Socket, payload: CreateRoomDto) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      const room = await this.messagesService.createRoom(payload, user.id);
+
+      client.join(`room-${room.id}`);
+
+      this.server.emit('roomList', await this.messagesService.findAllRooms());
+
+      return { success: true, room };
+    } catch (error) {
+      this.logger.error(`Error creating room: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+  @SubscribeMessage('getAllRooms')
+  async handleGetAllRooms() {
+    try {
+      const rooms = await this.messagesService.findAllRooms();
+      return { success: true, rooms };
+    } catch (error) {
+      this.logger.error(`Error getting rooms: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+  @SubscribeMessage('joinRoom')
+  async handleJoinRoom(client: Socket, payload: { roomId: string }) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      const room = await this.messagesService.joinRoom(payload.roomId, user.id);
+
+      client.join(`room-${room.id}`);
+
+      this.server.to(`room-${room.id}`).emit('userJoinedRoom', {
+        roomId: room.id,
+        user: {
+          id: user.id,
+          email: user.email,
+        },
+      });
+
+      this.server.emit('roomUpdated', room);
+
+      return { success: true, room };
+    } catch (error) {
+      this.logger.error(`Error joining room: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+  @SubscribeMessage('leaveRoom')
+  async handleLeaveRoom(client: Socket, payload: { roomId: string }) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      const room = await this.messagesService.leaveRoom(
+        payload.roomId,
+        user.id,
+      );
+
+      client.leave(`room-${room.id}`);
+      const userData = {
+        roomId: room.id,
+        userId: user.id,
+        userEmail: user.email || 'Someone',
+      };
+      this.server.to(`room-${room.id}`).emit('userLeftRoom', userData);
+      this.server.emit('roomUpdated', room);
+
+      return { success: true, room };
+    } catch (error) {
+      this.logger.error(`Error leaving room: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+  @SubscribeMessage('sendRoomMessage')
+  async handleSendRoomMessage(
+    client: Socket,
+    payload: { text: string; roomId: string },
+  ) {
+    try {
+      const user = this.connectedUsers.get(client.id);
+      if (!user) {
+        throw new Error('User not identified');
+      }
+
+      const createRoomMessageDto = new CreateRoomMessageDto();
+      createRoomMessageDto.text = payload.text;
+      createRoomMessageDto.roomId = payload.roomId;
+
+      const message = await this.messagesService.createRoomMessage(
+        createRoomMessageDto,
+        user.id,
+      );
+      this.server.to(`room-${payload.roomId}`).emit('roomMessage', message);
+
+      return { success: true, message };
+    } catch (error) {
+      this.logger.error(`Error sending room message: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
+  }
+  @SubscribeMessage('getRoomMessages')
+  async handleGetRoomMessages(client: Socket, payload: { roomId: string }) {
+    try {
+      const messages = await this.messagesService.findRoomMessages(
+        payload.roomId,
+      );
+      return { success: true, messages };
+    } catch (error) {
+      this.logger.error(`Error getting room messages: ${error.message}`);
+      client.emit('error', { message: error.message });
+      return { success: false, error: error.message };
+    }
   }
 }
